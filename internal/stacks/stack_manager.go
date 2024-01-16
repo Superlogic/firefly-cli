@@ -96,6 +96,8 @@ func (s *StackManager) InitStack(options *types.InitOptions) (err error) {
 		BlockchainProvider:     fftypes.FFEnum(options.BlockchainProvider),
 		BlockchainNodeProvider: fftypes.FFEnum(options.BlockchainNodeProvider),
 		BlockchainConnector:    fftypes.FFEnum(options.BlockchainConnector),
+		SignerType:    			fftypes.FFEnum(options.SignerType),
+		RemoteSignerURL:        options.RemoteSignerURL,
 		ContractAddress:        options.ContractAddress,
 		StackDir:               filepath.Join(constants.StacksDir, options.StackName),
 		InitDir:                filepath.Join(constants.StacksDir, options.StackName, "init"),

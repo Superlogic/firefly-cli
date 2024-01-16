@@ -19,13 +19,16 @@ package ethsigner
 import (
 	"os"
 
+	"github.com/hyperledger/firefly-cli/pkg/types"
+	"github.com/hyperledger/firefly-common/pkg/fftypes"
 	"gopkg.in/yaml.v2"
 )
 
 type FileWalletFilenamesConfig struct {
-	With0xPrefix bool   `yaml:"with0xPrefix,omitempty"`
-	PrimaryExt   string `yaml:"primaryExt,omitempty"`
-	PasswordExt  string `yaml:"passwordExt,omitempty"`
+	With0xPrefix      bool   `yaml:"with0xPrefix,omitempty"`
+	PrimaryExt        string `yaml:"primaryExt,omitempty"`
+	PasswordExt       string `yaml:"passwordExt,omitempty"`
+	PrimaryMatchRegex string `yaml:"primaryMatchRegex,omitempty"`
 }
 
 type FileWalletMetadataConfig struct {
@@ -39,6 +42,13 @@ type FileWalletConfig struct {
 	DefaultPasswordFile string                     `yaml:"defaultPasswordFile,omitempty"`
 	Filenames           *FileWalletFilenamesConfig `yaml:"filenames,omitempty"`
 	Metadata            *FileWalletMetadataConfig  `yaml:"metadata,omitempty"`
+}
+
+type MPCWalletConfig struct {
+	Path      string                     `yaml:"path,omitempty"`
+	URL       string                     `yaml:"url,omitempty"`
+	Filenames *FileWalletFilenamesConfig `yaml:"filenames,omitempty"`
+	Enabled   bool                       `yaml:"enabled,omitempty"`
 }
 
 type ServerConfig struct {
@@ -59,6 +69,7 @@ type Config struct {
 	Server     ServerConfig     `yaml:"server"`
 	Backend    BackendConfig    `yaml:"backend"`
 	FileWallet FileWalletConfig `yaml:"fileWallet"`
+	MPCWallet  MPCWalletConfig  `yaml:"mpcWallet"`
 	Log        LogConfig        `yaml:"log"`
 }
 
@@ -67,8 +78,8 @@ func (e *Config) WriteConfig(filename string) error {
 	return os.WriteFile(filename, configYamlBytes, 0755)
 }
 
-func GenerateSignerConfig(chainID int64, rpcURL string) *Config {
-	return &Config{
+func GenerateSignerConfig(signerType fftypes.FFEnum, chainID int64, rpcURL string, remoteSignerURL string) *Config {
+	config := &Config{
 		Server: ServerConfig{
 			Port:    8545,
 			Address: "0.0.0.0",
@@ -77,7 +88,23 @@ func GenerateSignerConfig(chainID int64, rpcURL string) *Config {
 			URL:     rpcURL,
 			ChainID: &chainID,
 		},
-		FileWallet: FileWalletConfig{
+		Log: LogConfig{
+			Level: "debug",
+		},
+	}
+
+	switch signerType {
+	case types.SignerTypeMPC:
+		config.MPCWallet = MPCWalletConfig{
+			Path: "/data/keystore",
+			URL:  remoteSignerURL,
+			Filenames: &FileWalletFilenamesConfig{
+				PrimaryMatchRegex: "^((0x)?[0-9a-z]+).key.json$",
+			},
+			Enabled: true,
+		}
+	default:
+		config.FileWallet = FileWalletConfig{
 			Path: "/data/keystore",
 			Filenames: &FileWalletFilenamesConfig{
 				PrimaryExt: ".toml",
@@ -86,9 +113,8 @@ func GenerateSignerConfig(chainID int64, rpcURL string) *Config {
 				KeyFileProperty:      `{{ index .signing "key-file" }}`,
 				PasswordFileProperty: `{{ index .signing "password-file" }}`,
 			},
-		},
-		Log: LogConfig{
-			Level: "debug",
-		},
+		}
 	}
+
+	return config
 }

@@ -17,9 +17,13 @@
 package ethsigner
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -62,7 +66,7 @@ func (p *EthSignerProvider) WriteConfig(options *types.InitOptions, rpcURL strin
 	}
 
 	signerConfigPath := filepath.Join(initDir, "config", "ethsigner.yaml")
-	if err := GenerateSignerConfig(options.ChainID, rpcURL).WriteConfig(signerConfigPath); err != nil {
+	if err := GenerateSignerConfig(p.stack.SignerType, options.ChainID, rpcURL, p.stack.RemoteSignerURL).WriteConfig(signerConfigPath); err != nil {
 		return nil
 	}
 
@@ -179,6 +183,15 @@ func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
 	}
 
 	outputDirectory := filepath.Join(directory, "blockchain", "keystore")
+	switch p.stack.SignerType {
+	case types.SignerTypeMPC:
+		return p.createMPCWallet(outputDirectory, stackHasRunBefore, ethsignerVolumeName)
+	default:
+		return p.createFSWallet(outputDirectory, stackHasRunBefore, ethsignerVolumeName)
+	}
+}
+
+func (p *EthSignerProvider) createFSWallet(outputDirectory string, stackHasRunBefore bool, ethsignerVolumeName string) (interface{}, error) {
 	keyPair, walletFilePath, err := ethereum.CreateWalletFile(outputDirectory, "", keyPassword)
 	if err != nil {
 		return nil, err
@@ -203,5 +216,71 @@ func (p *EthSignerProvider) CreateAccount(args []string) (interface{}, error) {
 	return &ethereum.Account{
 		Address:    keyPair.Address.String(),
 		PrivateKey: hex.EncodeToString(keyPair.PrivateKey.Serialize()),
+	}, nil
+}
+
+func (p *EthSignerProvider) createMPCWallet(outputDirectory string, stackHasRunBefore bool, ethsignerVolumeName string) (interface{}, error) {
+	type mpcCreateWalletRequest struct {
+		Treshold int `json:"threshold"`
+		N        int `json:"n"`
+	}
+	type mpcCreateWalletResponse struct {
+		KeyID     string `json:"keyId"`
+		PublicKey string `json:"public_key"`
+		Address   string `json:"address"`
+	}
+
+	_, err := url.ParseRequestURI(p.stack.RemoteSignerURL)
+	if err != nil {
+		return nil, err
+	}
+	reqURL := fmt.Sprintf("%s/api/mpc/key", p.stack.RemoteSignerURL)
+
+	createWalletReq := &mpcCreateWalletRequest{
+		Treshold: 1,
+		N:        2,
+	}
+	requestBody, _ := json.Marshal(createWalletReq)
+
+	req, _ := http.NewRequest("POST", reqURL, bytes.NewBuffer(requestBody))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("wallet resp with wrong status code %d", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	var createWalletResp mpcCreateWalletResponse
+	err = json.Unmarshal(body, &createWalletResp)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
+		return nil, err
+	}
+
+	walletFilePath := filepath.Join(outputDirectory, fmt.Sprintf("%s%v", createWalletResp.Address, ".key.json"))
+
+	err = os.WriteFile(walletFilePath, nil, 0755)
+	if err != nil {
+		return nil, err
+	}
+
+	if stackHasRunBefore {
+		if err := ethereum.CopyWalletFileToVolume(p.ctx, walletFilePath, ethsignerVolumeName); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ethereum.Account{
+		Address:    createWalletResp.Address,
+		PrivateKey: "",
 	}, nil
 }

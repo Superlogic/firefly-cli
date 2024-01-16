@@ -68,6 +68,9 @@ func initCommon(args []string) error {
 	if err := validateDatabaseProvider(initOptions.DatabaseProvider); err != nil {
 		return err
 	}
+	if err := validateSignerType(initOptions.SignerType); err != nil {
+		return err
+	}
 	if err := validateBlockchainProvider(initOptions.BlockchainProvider, initOptions.BlockchainNodeProvider); err != nil {
 		return err
 	}
@@ -177,6 +180,11 @@ func validateDatabaseProvider(input string) error {
 	return err
 }
 
+func validateSignerType(input string) error {
+	_, err := fftypes.FFEnumParseString(context.Background(), types.SignerType, input)
+	return err
+}
+
 func validateBlockchainProvider(providerString, nodeString string) error {
 	_, err := fftypes.FFEnumParseString(context.Background(), types.BlockchainProvider, providerString)
 	if err != nil {
@@ -243,6 +251,8 @@ func init() {
 	initCmd.Flags().StringVarP(&initOptions.BlockchainConnector, "blockchain-connector", "c", "evmconnect", fmt.Sprintf("Blockchain connector to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainConnector)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainProvider, "blockchain-provider", "b", "ethereum", fmt.Sprintf("Blockchain to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainProvider)))
 	initCmd.Flags().StringVarP(&initOptions.BlockchainNodeProvider, "blockchain-node", "n", "geth", fmt.Sprintf("Blockchain node type to use. Options are: %v", fftypes.FFEnumValues(types.BlockchainNodeProvider)))
+	initCmd.Flags().StringVarP(&initOptions.SignerType, "signer-type", "", "filesystem", fmt.Sprintf("Transaction signer type to use. Options are: %v", fftypes.FFEnumValues(types.SignerType)))
+	initCmd.Flags().StringVar(&initOptions.RemoteSignerURL, "remote-signer-url", "", "For cases where the transaction signing service is pre-existing and running remotely")
 	initCmd.PersistentFlags().StringArrayVarP(&initOptions.TokenProviders, "token-providers", "t", []string{"erc20_erc721"}, fmt.Sprintf("Token providers to use. Options are: %v", fftypes.FFEnumValues(types.TokenProvider)))
 	initCmd.PersistentFlags().IntVarP(&initOptions.ExternalProcesses, "external", "e", 0, "Manage a number of FireFly core processes outside of the docker-compose stack - useful for development and debugging")
 	initCmd.PersistentFlags().StringVarP(&initOptions.FireFlyVersion, "release", "r", "latest", fmt.Sprintf("Select the FireFly release version to use. Options are: %v", fftypes.FFEnumValues(types.ReleaseChannelSelection)))

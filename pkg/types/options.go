@@ -41,6 +41,8 @@ type InitOptions struct {
 	BlockchainConnector      string
 	BlockchainProvider       string
 	BlockchainNodeProvider   string
+	SignerType               string
+	RemoteSignerURL          string
 	TokenProviders           []string
 	FireFlyVersion           string
 	ManifestPath             string
@@ -96,6 +98,13 @@ var (
 	BlockchainNodeProviderGeth      = fftypes.FFEnumValue(BlockchainNodeProvider, "geth")
 	BlockchainNodeProviderBesu      = fftypes.FFEnumValue(BlockchainNodeProvider, "besu")
 	BlockchainNodeProviderRemoteRPC = fftypes.FFEnumValue(BlockchainNodeProvider, "remote-rpc")
+)
+
+const SignerType = "signer_type"
+
+var (
+	SignerTypeFS  = fftypes.FFEnumValue(SignerType, "filesystem")
+	SignerTypeMPC = fftypes.FFEnumValue(SignerType, "mpc")
 )
 
 const DatabaseSelection = "database_selection"

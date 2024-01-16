@@ -33,6 +33,8 @@ type Stack struct {
 	BlockchainProvider     fftypes.FFEnum   `json:"blockchainProvider"`
 	BlockchainConnector    fftypes.FFEnum   `json:"blockchainConnector"`
 	BlockchainNodeProvider fftypes.FFEnum   `json:"blockchainNodeProvider"`
+	SignerType			   fftypes.FFEnum	`json:"signerType"`
+	RemoteSignerURL        string	        `json:"remoteSignerURL,omitempty"`
 	TokenProviders         []fftypes.FFEnum `json:"tokenProviders"`
 	VersionManifest        *VersionManifest `json:"versionManifest,omitempty"`
 	PrometheusEnabled      bool             `json:"prometheusEnabled,omitempty"`
